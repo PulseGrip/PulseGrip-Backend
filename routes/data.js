@@ -33,7 +33,7 @@ module.exports = (dataDb) => {
     });
 
     // Add a new score to the database
-    router.post('/score', authMiddleware, async (req, res) => {
+    router.post('/score', async (req, res) => {
         try {
             const { gameSessionId, gameId, score } = req.body;
             const time = new Date();
@@ -93,7 +93,7 @@ module.exports = (dataDb) => {
     });
 
     // Save the EMG details for a game session
-    router.post('/saveEMGdetails', authMiddleware, async (req, res) => {
+    router.post('/saveEMGdetails', async (req, res) => {
         const { gameSessionId, gameId, motorSpeeds, motorAngles, EMGoutputs } = req.body;
         try {
             await EMGCollection.insertOne({ gameSessionId, gameId, motorSpeeds, motorAngles, EMGoutputs });
