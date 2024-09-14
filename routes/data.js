@@ -24,7 +24,8 @@ module.exports = (dataDb) => {
     router.get('/topScores/:gameId', async (req, res) => {
         try {
             const { gameId } = req.params;
-            const topScores = await scoresCollection.find({ gameId }).sort({ score: -1 }).limit(10).toArray();
+            const query = ObjectId.isValid(gameId) ? { gameId: new ObjectId(gameId) } : { gameId: gameId };
+            const topScores = await scoresCollection.find(query).sort({ score: -1 }).limit(10).toArray();
             res.status(200).json(topScores);
         } catch (error) {
             console.error('Error fetching top scores:', error);
