@@ -84,12 +84,22 @@ async function connectToMongoDB() {
         });
 
         // Fetch all the details (EMG and Score) for a game session
-        app.get('/getTechDetails/:gameSessionId', async (req, res) => {
+        app.get('/getGameSessionResult/:gameSessionId', async (req, res) => {
             try {
                 const { gameSessionId } = req.params;
                 const EMGdetails = await EMGCollection.findOne({ gameSessionId });
                 const score = await scoresCollection.findOne({ gameSessionId });
-                res.status(200).json({ EMGdetails, score });
+                const output = {
+                    emgId: EMGdetails._id,
+                    gameId: EMGdetails.gameId,
+                    gameSessionId: EMGdetails.gameSessionId,
+                    motorSpeeds: EMGdetails.motorSpeeds,
+                    motorAngles: EMGdetails.motorAngles,
+                    EMGoutputs: EMGdetails.EMGoutputs,
+                    score: score.score,
+                    time: score.time
+                }
+                res.status(200).json(output);
             } catch (error) {
                 console.error('Error fetching tech details:', error);
                 res.status(500).send('Error fetching tech details');
