@@ -35,9 +35,9 @@ module.exports = (dataDb) => {
     // Add a new score to the database
     router.post('/score', async (req, res) => {
         try {
-            const { gameSessionId, gameId, score } = req.body;
+            const { gameId, score } = req.body;
             const time = new Date();
-            await scoresCollection.insertOne({ gameSessionId: new ObjectId(gameSessionId), gameId: new ObjectId(gameId), score: parseInt(score), time });
+            await scoresCollection.insertOne({ gameId: new ObjectId(gameId), score: parseInt(score), time });
             res.status(201).send('Score saved successfully');
         } catch (error) {
             console.error('Error saving score:', error);
@@ -46,10 +46,12 @@ module.exports = (dataDb) => {
     });
 
     // Fetch the threshold for each game
-    router.get('/threshold/:gameId', authMiddleware, async (req, res) => {
+    router.get('/threshold', authMiddleware, async (req, res) => {
         try {
-            const { gameId } = req.params;
-            const threshold = await thresholdsCollection.findOne({ gameId: new ObjectId(gameId) });
+            const threshold = await thresholdsCollection.findOne({});
+            if (!threshold) {
+                return res.status(404).send('Threshold not found');
+            }
             res.status(200).json(threshold.value);
         } catch (error) {
             console.error('Error fetching threshold:', error);
@@ -57,11 +59,11 @@ module.exports = (dataDb) => {
         }
     });
 
-    // Set the threshold for a game
+    // Set the threshold
     router.put('/threshold', authMiddleware, async (req, res) => {
         try {
-            const { gameId, threshold } = req.body;
-            await thresholdsCollection.updateOne({ gameId: new ObjectId(gameId) }, { $set: { value: threshold } }, { upsert: true });
+            const { threshold } = req.body;
+            await thresholdsCollection.updateOne({}, { $set: { value: threshold } }, { upsert: true });
             res.status(200).send('Threshold updated successfully');
         } catch (error) {
             console.error('Error updating threshold:', error);
@@ -69,38 +71,27 @@ module.exports = (dataDb) => {
         }
     });
 
-    // Fetch all the details (EMG and Score) for a game session
-    router.get('/getGameSessionResult/:gameSessionId', authMiddleware, async (req, res) => {
-        try {
-            const { gameSessionId } = req.params;
-            const EMGdetails = await EMGCollection.findOne({ gameSessionId });
-            const score = await scoresCollection.findOne({ gameSessionId });
-            const output = {
-                emgId: EMGdetails._id,
-                gameId: EMGdetails.gameId,
-                gameSessionId: EMGdetails.gameSessionId,
-                motorSpeeds: EMGdetails.motorSpeeds,
-                motorAngles: EMGdetails.motorAngles,
-                EMGoutputs: EMGdetails.EMGoutputs,
-                score: score.score,
-                time: score.time
-            }
-            res.status(200).json(output);
-        } catch (error) {
-            console.error('Error fetching tech details:', error);
-            res.status(500).send('Error fetching tech details');
-        }
-    });
-
-    // Save the EMG details for a game session
+    // Save the EMG details
     router.post('/saveEMGdetails', async (req, res) => {
-        const { gameSessionId, gameId, motorSpeeds, motorAngles, EMGoutputs } = req.body;
+        const { motorSpeed, motorAngle, EMGoutput } = req.body;
         try {
-            await EMGCollection.insertOne({ gameSessionId, gameId, motorSpeeds, motorAngles, EMGoutputs });
+            const time = new Date();
+            await EMGCollection.insertOne({ motorSpeed, motorAngle, EMGoutput, time });
             res.status(201).send('EMG details saved successfully');
         } catch (error) {
             console.error('Error saving EMG details:', error);
             res.status(500).send('Error saving EMG details');
+        }
+    });
+
+    // Fetch the EMG details sorted by time
+    router.get('/EMGdetails', authMiddleware, async (req, res) => {
+        try {
+            const EMGdetails = await EMGCollection.find({}).sort({ time: -1 }).toArray();
+            res.status(200).json(EMGdetails);
+        } catch (error) {
+            console.error('Error fetching EMG details:', error);
+            res.status(500).send('Error fetching EMG details');
         }
     });
 
