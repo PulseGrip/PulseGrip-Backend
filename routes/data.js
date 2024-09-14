@@ -74,10 +74,10 @@ module.exports = (dataDb) => {
 
     // Save the EMG details
     router.post('/saveEMGdetails', async (req, res) => {
-        const { motorSpeed, motorAngle, EMGoutput } = req.body;
+        const { motorSpeed, motorAngle, isClosed } = req.body;
         try {
             const time = new Date();
-            await EMGCollection.insertOne({ motorSpeed, motorAngle, EMGoutput, time });
+            await EMGCollection.insertOne({ motorSpeed, motorAngle, isClosed, time });
             res.status(201).send('EMG details saved successfully');
         } catch (error) {
             console.error('Error saving EMG details:', error);
