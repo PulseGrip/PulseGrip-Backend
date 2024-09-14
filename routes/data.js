@@ -96,5 +96,45 @@ module.exports = (dataDb) => {
         }
     });
 
+    // Stream the latest scores
+    router.get('/streamScores', (req, res) => {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const changeStream = scoresCollection.watch();
+        changeStream.on('change', async (change) => {
+            if (change.operationType === 'insert') {
+                const latestScores = await scoresCollection.find({}).sort({ time: -1 }).limit(10).toArray();
+                res.write(`data: ${JSON.stringify(latestScores)}\n\n`);
+            }
+        });
+
+        req.on('close', () => {
+            changeStream.close();
+            res.end();
+        });
+    });
+
+    // Stream the latest EMG data
+    router.get('/streamEMG', (req, res) => {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const changeStream = EMGCollection.watch();
+        changeStream.on('change', async (change) => {
+            if (change.operationType === 'insert') {
+                const latestEMG = await EMGCollection.find({}).sort({ time: -1 }).limit(10).toArray();
+                res.write(`data: ${JSON.stringify(latestEMG)}\n\n`);
+            }
+        });
+
+        req.on('close', () => {
+            changeStream.close();
+            res.end();
+        });
+    });
+
     return router;
 };
