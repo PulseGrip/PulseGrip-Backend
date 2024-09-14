@@ -1,0 +1,2 @@
+To resume the screen: screen -r, then hit tab
+TO leave the screen: ctrl + a, then d, then clear

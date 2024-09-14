@@ -1,6 +1,8 @@
 const cors = require('cors');
 const express = require('express');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const app = express();
 
@@ -8,6 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 const uri = process.env.MONGODB_URI;
+const JWT_SECRET = process.env.JWT_SECRET;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, maxPoolSize: 10 });
 
 async function connectToMongoDB() {
@@ -26,8 +29,8 @@ async function connectToMongoDB() {
             res.send('Hello World');
         });
 
-        app.listen(8080, () => {
-            console.log('Server is running on port 8080');
+        app.listen(process.env.PORT || 3000, () => {
+            console.log(`Server is running on port ${process.env.PORT || 3000}`);
         });
     } catch (err) {
         console.error('Failed to connect to MongoDB', err);
