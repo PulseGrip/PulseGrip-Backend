@@ -10,7 +10,7 @@ module.exports = (dataDb) => {
     const EMGCollection = dataDb.collection('emg');
 
     // Fetch all the games
-    router.get('/games', authMiddleware, async (req, res) => {
+    router.get('/games', async (req, res) => {
         try {
             const games = await gamesCollection.find({}).toArray();
             res.status(200).json(games);
@@ -21,7 +21,7 @@ module.exports = (dataDb) => {
     });
 
     // Get 10 top scores for the game
-    router.get('/topScores/:gameId', authMiddleware, async (req, res) => {
+    router.get('/topScores/:gameId', async (req, res) => {
         try {
             const { gameId } = req.params;
             const topScores = await scoresCollection.find({ gameId }).sort({ score: -1 }).limit(10).toArray();
@@ -46,7 +46,7 @@ module.exports = (dataDb) => {
     });
 
     // Fetch the threshold for each game
-    router.get('/threshold', authMiddleware, async (req, res) => {
+    router.get('/threshold', async (req, res) => {
         try {
             const threshold = await thresholdsCollection.findOne({});
             if (!threshold) {
@@ -60,7 +60,7 @@ module.exports = (dataDb) => {
     });
 
     // Set the threshold
-    router.put('/threshold', authMiddleware, async (req, res) => {
+    router.put('/threshold', async (req, res) => {
         try {
             const { threshold } = req.body;
             await thresholdsCollection.updateOne({}, { $set: { value: threshold } }, { upsert: true });
@@ -85,7 +85,7 @@ module.exports = (dataDb) => {
     });
 
     // Fetch the EMG details sorted by time
-    router.get('/EMGdetails', authMiddleware, async (req, res) => {
+    router.get('/EMGdetails', async (req, res) => {
         try {
             const EMGdetails = await EMGCollection.find({}).sort({ time: -1 }).toArray();
             res.status(200).json(EMGdetails);
