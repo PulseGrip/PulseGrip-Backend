@@ -20,64 +20,73 @@ client.connect(err => {
     const gamesCollection = db.collection('games');
     const EMGCollection = db.collection('EMG');
 
-    app.get('/topScores', async (req, res) => {
+    // Get 10 top scores for the game
+    app.get('/topScores/:gameId', async (req, res) => {
         try {
-            const topScores = await scoresCollection.find().sort({ score: -1 }).limit(10).toArray();
+            const { gameId } = req.params;
+            const topScores = await scoresCollection.find({ gameId }).sort({ score: -1 }).limit(10).toArray();
             res.status(200).json(topScores);
         } catch (error) {
             res.status(500).send('Error fetching top scores');
         }
     });
 
+    // Add a new score to the database
     app.post('/score', async (req, res) => {
         try {
-            const { score } = req.body;
-            await scoresCollection.insertOne({ score });
+            const { gameSessionId, gameId, score } = req.body;
+            await scoresCollection.insertOne({ gameSessionId, score });
             res.status(201).send('Score saved successfully');
         } catch (error) {
             res.status(500).send('Error saving score');
         }
     });
 
-    app.get('/threshold', async (req, res) => {
+    // Fetch the threshold for each game
+    app.get('/threshold/:gameId', async (req, res) => {
         try {
-            const threshold = await thresholdsCollection.findOne();
+            const { gameId } = req.params;
+            const threshold = await thresholdsCollection.findOne({ gameId });
             res.status(200).json(threshold);
         } catch (error) {
             res.status(500).send('Error fetching threshold');
         }
     });
 
+    // Set the threshold for a game
     app.post('/threshold', async (req, res) => {
         try {
-            const { threshold } = req.body;
-            await thresholdsCollection.insertOne({ threshold });
+            const { gameId, threshold } = req.body;
+            await thresholdsCollection.updateOne({ gameId }, { $set: { threshold } }, { upsert: true });
             res.status(201).send('Threshold set successfully');
         } catch (error) {
             res.status(500).send('Error setting threshold');
         }
     });
 
-    app.get('/getEMGdetails/:gameId', async (req, res) => {
+    // Fetch all the EMG details for a game session
+    app.get('/getEMGdetails/:gameSessionId', async (req, res) => {
         try {
-            const { gameId } = req.params;
-            const EMGdetails = await EMGCollection.find({ gameId }).toArray();
+            const { gameSessionId } = req.params;
+            const EMGdetails = await EMGCollection.find({ gameSessionId }).toArray();
             res.status(200).json(EMGdetails);
         } catch (error) {
             res.status(500).send('Error fetching EMG details');
         }
     });
 
+    // Save the EMG details for a game session
     app.post('/saveEMGdetails', async (req, res) => {
-        const { gameId, motorSpeeds, MotorAngles, EMGOutputs } = req.body;
+        const { gameSessionId, gameId, motorSpeeds, MotorAngles, EMGOutputs } = req.body;
         try {
-            await EMGCollection.insertOne({ gameId, motorSpeeds, MotorAngles, EMGOutputs });
+            await EMGCollection.insertOne({ gameSessionId, gameId, motorSpeeds, MotorAngles, EMGOutputs });
             res.status(201).send('EMG details saved successfully');
         } catch (error) {
             res.status(500).send('Error saving EMG details');
         }
     });
 
+    // Base route
     app.get('/', (req, res) => {
         res.send('Hello World');
     });
