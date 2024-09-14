@@ -1,5 +1,7 @@
 const cors = require('cors');
 const express = require('express');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const { MongoClient } = require('mongodb');
 const { ObjectId } = require('mongodb');
 require('dotenv').config();
@@ -9,20 +11,76 @@ app.use(cors());
 app.use(express.json());
 
 const uri = process.env.MONGODB_URI;
+const JWT_SECRET = process.env.JWT_SECRET;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, maxPoolSize: 10 });
 
 async function connectToMongoDB() {
     try {
         await client.connect();
         console.log('Connected to MongoDB');
-        const db = client.db('pg-db');
-        const thresholdsCollection = db.collection('thresholds');
-        const scoresCollection = db.collection('scores');
-        const gamesCollection = db.collection('games');
-        const EMGCollection = db.collection('emg');
+        const dataDb = client.db('pg-db');
+        const authDb = client.db('pg-auth-db');
+        const thresholdsCollection = dataDb.collection('thresholds');
+        const scoresCollection = dataDb.collection('scores');
+        const gamesCollection = dataDb.collection('games');
+        const EMGCollection = dataDb.collection('emg');
+
+        // Register a new user
+        app.post('/auth/register', async (req, res) => {
+            const { username, password, fullName } = req.body;
+            try {
+                const existingUser = await authDb.collection('users').findOne({ username });
+                if (existingUser) {
+                    return res.status(400).send('User already exists');
+                }
+                const hashedPassword = await bcrypt.hash(password, 10);
+                const result = await authDb.collection('users').insertOne({ username, fullName, password: hashedPassword });
+                const token = jwt.sign({ _id: result.insertedId }, JWT_SECRET, { expiresIn: '3h' });
+                res.status(201).json({ message: 'User created successfully', token });
+            } catch (error) {
+                console.error('Error signing up:', error);
+                res.status(500).send('Error signing up');
+            }
+        });
+
+        // Login a user
+        app.post('/auth/login', async (req, res) => {
+            const { username, password } = req.body;
+            try {
+                const user = await authDb.collection('users').findOne({ username });
+                if (!user) {
+                    return res.status(400).send('User does not exist');
+                }
+                const passwordMatch = await bcrypt.compare(password, user.password);
+                if (!passwordMatch) {
+                    return res.status(400).send('Invalid password');
+                }
+                const token = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: '3h' });
+                res.status(200).json({ message: 'Login successful', token });
+            } catch (error) {
+                console.error('Error logging in:', error);
+                res.status(500).send('Error logging in');
+            }
+        });
+
+        // Middleware to authenticate the user
+        function authMiddleware(req, res, next) {
+            const authHeader = req.headers.authorization;
+            const token = authHeader && authHeader.split(' ')[1];
+            if (!token) {
+                return res.status(401).send('Unauthorized');
+            }
+            jwt.verify(token, JWT_SECRET, (err, user) => {
+                if (err) {
+                    return res.status(403).send('Forbidden');
+                }
+                req.user = user;
+                next();
+            });
+        }
 
         // Fetch all the games
-        app.get('/games', async (req, res) => {
+        app.get('/games', authMiddleware, async (req, res) => {
             try {
                 const games = await gamesCollection.find({}).toArray();
                 console.log(games);
@@ -34,7 +92,7 @@ async function connectToMongoDB() {
         });
 
         // Get 10 top scores for the game
-        app.get('/topScores/:gameId', async (req, res) => {
+        app.get('/topScores/:gameId', authMiddleware, async (req, res) => {
             try {
                 const { gameId } = req.params;
                 const topScores = await scoresCollection.find({ gameId }).sort({ score: -1 }).limit(10).toArray();
@@ -46,7 +104,7 @@ async function connectToMongoDB() {
         });
 
         // Add a new score to the database
-        app.post('/score', async (req, res) => {
+        app.post('/score', authMiddleware, async (req, res) => {
             try {
                 const { gameSessionId, gameId, score } = req.body;
                 const time = new Date();
@@ -59,7 +117,7 @@ async function connectToMongoDB() {
         });
 
         // Fetch the threshold for each game
-        app.get('/threshold/:gameId', async (req, res) => {
+        app.get('/threshold/:gameId', authMiddleware, async (req, res) => {
             try {
                 const { gameId } = req.params;
                 const threshold = await thresholdsCollection.findOne({ gameId: new ObjectId(gameId) });
@@ -72,7 +130,7 @@ async function connectToMongoDB() {
         });
 
         // Set the threshold for a game
-        app.put('/threshold', async (req, res) => {
+        app.put('/threshold', authMiddleware, async (req, res) => {
             try {
                 const { gameId, threshold } = req.body;
                 await thresholdsCollection.updateOne({ gameId: new ObjectId(gameId) }, { $set: { value: threshold } }, { upsert: true });
@@ -84,7 +142,7 @@ async function connectToMongoDB() {
         });
 
         // Fetch all the details (EMG and Score) for a game session
-        app.get('/getGameSessionResult/:gameSessionId', async (req, res) => {
+        app.get('/getGameSessionResult/:gameSessionId', authMiddleware, async (req, res) => {
             try {
                 const { gameSessionId } = req.params;
                 const EMGdetails = await EMGCollection.findOne({ gameSessionId });
@@ -107,7 +165,7 @@ async function connectToMongoDB() {
         });
 
         // Save the EMG details for a game session
-        app.post('/saveEMGdetails', async (req, res) => {
+        app.post('/saveEMGdetails', authMiddleware, async (req, res) => {
             const { gameSessionId, gameId, motorSpeeds, motorAngles, EMGoutputs } = req.body;
             try {
                 await EMGCollection.insertOne({ gameSessionId, gameId, motorSpeeds, motorAngles, EMGoutputs });
