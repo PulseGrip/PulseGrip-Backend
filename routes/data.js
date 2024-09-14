@@ -37,7 +37,7 @@ module.exports = (dataDb) => {
         try {
             const { gameSessionId, gameId, score } = req.body;
             const time = new Date();
-            await scoresCollection.insertOne({ gameSessionId, gameId, score, time });
+            await scoresCollection.insertOne({ gameSessionId: new ObjectId(gameSessionId), gameId: new ObjectId(gameId), score: parseInt(score), time });
             res.status(201).send('Score saved successfully');
         } catch (error) {
             console.error('Error saving score:', error);
