@@ -26,8 +26,8 @@ async function connectToMongoDB() {
             res.send('Hello World');
         });
 
-        app.listen(80, () => {
-            console.log('Server is running on port 80');
+        app.listen(8080, () => {
+            console.log('Server is running on port 8080');
         });
     } catch (err) {
         console.error('Failed to connect to MongoDB', err);
