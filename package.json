@@ -17,6 +17,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.9.0",
     "neurotrack-backend": "file:",
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.4",
+    "pm2": "^5.4.2"
   }
 }
