@@ -1,6 +1,7 @@
 const cors = require('cors');
 const express = require('express');
 const { MongoClient } = require('mongodb');
+const { ObjectId } = require('mongodb');
 require('dotenv').config();
 const app = express();
 
@@ -14,11 +15,23 @@ async function connectToMongoDB() {
     try {
         await client.connect();
         console.log('Connected to MongoDB');
-        const db = client.db('your_database_name');
+        const db = client.db('pg-db');
         const thresholdsCollection = db.collection('thresholds');
         const scoresCollection = db.collection('scores');
         const gamesCollection = db.collection('games');
-        const EMGCollection = db.collection('EMG');
+        const EMGCollection = db.collection('emg');
+
+        // Fetch all the games
+        app.get('/games', async (req, res) => {
+            try {
+                const games = await gamesCollection.find({}).toArray();
+                console.log(games);
+                res.status(200).json(games);
+            } catch (error) {
+                console.error('Error fetching games:', error);
+                res.status(500).send('Error fetching games');
+            }
+        });
 
         // Get 10 top scores for the game
         app.get('/topScores/:gameId', async (req, res) => {
@@ -36,7 +49,8 @@ async function connectToMongoDB() {
         app.post('/score', async (req, res) => {
             try {
                 const { gameSessionId, gameId, score } = req.body;
-                await scoresCollection.insertOne({ gameSessionId, score });
+                const time = new Date();
+                await scoresCollection.insertOne({ gameSessionId, gameId, score, time });
                 res.status(201).send('Score saved successfully');
             } catch (error) {
                 console.error('Error saving score:', error);
@@ -48,8 +62,9 @@ async function connectToMongoDB() {
         app.get('/threshold/:gameId', async (req, res) => {
             try {
                 const { gameId } = req.params;
-                const threshold = await thresholdsCollection.findOne({ gameId });
-                res.status(200).json(threshold);
+                const threshold = await thresholdsCollection.findOne({ gameId: new ObjectId(gameId) });
+                console.log(threshold);
+                res.status(200).json(threshold.value);
             } catch (error) {
                 console.error('Error fetching threshold:', error);
                 res.status(500).send('Error fetching threshold');
@@ -57,34 +72,35 @@ async function connectToMongoDB() {
         });
 
         // Set the threshold for a game
-        app.post('/threshold', async (req, res) => {
+        app.put('/threshold', async (req, res) => {
             try {
                 const { gameId, threshold } = req.body;
-                await thresholdsCollection.updateOne({ gameId }, { $set: { threshold } }, { upsert: true });
-                res.status(201).send('Threshold set successfully');
+                await thresholdsCollection.updateOne({ gameId: new ObjectId(gameId) }, { $set: { value: threshold } }, { upsert: true });
+                res.status(200).send('Threshold updated successfully');
             } catch (error) {
-                console.error('Error setting threshold:', error);
-                res.status(500).send('Error setting threshold');
+                console.error('Error updating threshold:', error);
+                res.status(500).send('Error updating threshold');
             }
         });
 
-        // Fetch all the EMG details for a game session
-        app.get('/getEMGdetails/:gameSessionId', async (req, res) => {
+        // Fetch all the details (EMG and Score) for a game session
+        app.get('/getTechDetails/:gameSessionId', async (req, res) => {
             try {
                 const { gameSessionId } = req.params;
-                const EMGdetails = await EMGCollection.find({ gameSessionId }).toArray();
-                res.status(200).json(EMGdetails);
+                const EMGdetails = await EMGCollection.findOne({ gameSessionId });
+                const score = await scoresCollection.findOne({ gameSessionId });
+                res.status(200).json({ EMGdetails, score });
             } catch (error) {
-                console.error('Error fetching EMG details:', error);
-                res.status(500).send('Error fetching EMG details');
+                console.error('Error fetching tech details:', error);
+                res.status(500).send('Error fetching tech details');
             }
         });
 
         // Save the EMG details for a game session
         app.post('/saveEMGdetails', async (req, res) => {
-            const { gameSessionId, gameId, motorSpeeds, MotorAngles, EMGOutputs } = req.body;
+            const { gameSessionId, gameId, motorSpeeds, motorAngles, EMGoutputs } = req.body;
             try {
-                await EMGCollection.insertOne({ gameSessionId, gameId, motorSpeeds, MotorAngles, EMGOutputs });
+                await EMGCollection.insertOne({ gameSessionId, gameId, motorSpeeds, motorAngles, EMGoutputs });
                 res.status(201).send('EMG details saved successfully');
             } catch (error) {
                 console.error('Error saving EMG details:', error);
