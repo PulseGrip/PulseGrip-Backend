@@ -88,7 +88,7 @@ module.exports = (dataDb) => {
     // Fetch the EMG details sorted by time
     router.get('/EMGdetails', async (req, res) => {
         try {
-            const EMGdetails = await EMGCollection.find({}).sort({ time: -1 }).toArray();
+            const EMGdetails = await EMGCollection.find({}).sort({ time: -1 }).limit(10).toArray();
             res.status(200).json(EMGdetails);
         } catch (error) {
             console.error('Error fetching EMG details:', error);
